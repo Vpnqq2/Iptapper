@@ -113,13 +113,8 @@ jobs:
             COMPILE_SDK=35
           fi
 
-          BUILD_TOOLS="35.0.0"
-
           echo "compile=$COMPILE_SDK" >> "$GITHUB_OUTPUT"
-          echo "build_tools=$BUILD_TOOLS" >> "$GITHUB_OUTPUT"
-
-          echo "Compile SDK: $COMPILE_SDK"
-          echo "Build Tools: $BUILD_TOOLS"
+          echo "build_tools=35.0.0" >> "$GITHUB_OUTPUT"
 
       - name: Install Android SDK packages
         shell: bash
@@ -127,18 +122,37 @@ jobs:
           set -euo pipefail
 
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
-
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$SDK/cmdline-tools" \
-              -type f -name sdkmanager -executable \
-              -print -quit)
-          fi
+          SDKMANAGER=$(find "$SDK/cmdline-tools" \
+            -type f -name sdkmanager -executable \
+            -print -quit)
 
           "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-${{ steps.sdk.outputs.compile }}" \
             "build-tools;${{ steps.sdk.outputs.build_tools }}"
+
+      - name: Generate Debug Keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PROJECT="${{ steps.project.outputs.dir }}"
+          KEYSTORE="$PROJECT/debug.keystore"
+
+          if [ ! -f "$KEYSTORE" ]; then
+            keytool -genkeypair \
+              -v \
+              -keystore "$KEYSTORE" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          echo "Debug keystore ready."
 
       - name: Build Debug APK
         shell: bash
